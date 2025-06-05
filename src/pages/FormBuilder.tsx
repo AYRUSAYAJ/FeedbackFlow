@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,6 +56,12 @@ const FormBuilder = () => {
     }
   ]);
 
+  // Organization info for QR code generation
+  const orgInfo = {
+    name: "City General Hospital",
+    feedbackUrl: "https://feedback.cityhospital.com"
+  };
+
   const fieldTypes = [
     { type: "text", label: "Text Input", icon: Type },
     { type: "textarea", label: "Long Text", icon: Type },
@@ -86,6 +91,7 @@ const FormBuilder = () => {
     setFields(fields.filter(field => field.id !== fieldId));
   };
 
+  // ... keep existing code (renderFieldPreview function)
   const renderFieldPreview = (field: any) => {
     switch (field.type) {
       case "text":
@@ -184,10 +190,12 @@ const FormBuilder = () => {
                 <Eye className="h-4 w-4 mr-2" />
                 Preview
               </Button>
-              <Button variant="outline">
-                <QrCode className="h-4 w-4 mr-2" />
-                Generate QR
-              </Button>
+              <Link to="/organization-dashboard">
+                <Button variant="outline">
+                  <QrCode className="h-4 w-4 mr-2" />
+                  Organization QR
+                </Button>
+              </Link>
               <Button className="bg-gradient-to-r from-blue-600 to-purple-600">
                 <Save className="h-4 w-4 mr-2" />
                 Save Form
@@ -274,7 +282,7 @@ const FormBuilder = () => {
               <TabsList>
                 <TabsTrigger value="builder">Form Builder</TabsTrigger>
                 <TabsTrigger value="preview">Live Preview</TabsTrigger>
-                <TabsTrigger value="qr">QR Code</TabsTrigger>
+                <TabsTrigger value="organization-qr">Organization QR</TabsTrigger>
               </TabsList>
 
               <TabsContent value="builder">
@@ -367,11 +375,11 @@ const FormBuilder = () => {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="qr">
+              <TabsContent value="organization-qr">
                 <Card>
                   <CardHeader>
-                    <CardTitle>QR Code Generator</CardTitle>
-                    <CardDescription>Generate QR codes for easy form access</CardDescription>
+                    <CardTitle>Organization QR Code</CardTitle>
+                    <CardDescription>One QR code for all feedback forms in your organization</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="text-center space-y-6">
@@ -381,8 +389,15 @@ const FormBuilder = () => {
                         </div>
                       </div>
                       <div>
+                        <p className="text-sm text-gray-600 mb-2">
+                          Organization: <strong>{orgInfo.name}</strong>
+                        </p>
+                        <p className="text-xs text-gray-500 mb-4">
+                          URL: {orgInfo.feedbackUrl}
+                        </p>
                         <p className="text-sm text-gray-600 mb-4">
-                          QR Code for: <strong>{formName}</strong>
+                          This QR code provides access to all feedback forms in your organization.
+                          Users can select which form to fill out after scanning.
                         </p>
                         <div className="flex justify-center space-x-4">
                           <Button variant="outline">Download PNG</Button>
