@@ -19,7 +19,7 @@ const Login = () => {
   const handleSuperAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login/superadmin", {
+      const res = await axios.post("/api/auth/login/superadmin", {
         email: superAdminEmail,
         password: superAdminPassword,
       });
@@ -36,14 +36,16 @@ const Login = () => {
   const handleOrgAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login/orgadmin", {
+      const res = await axios.post("/api/auth/login/orgadmin", {
         email: orgAdminEmail,
         password: orgAdminPassword,
         orgCode,
       });
       console.log("Org Admin login successful:", res.data);
-      // Optional: Save token/user info
-      // localStorage.setItem("token", res.data.token);
+      // Store organization ID and other relevant info
+      localStorage.setItem("orgId", res.data.orgId);
+      localStorage.setItem("orgCode", res.data.orgCode);
+      localStorage.setItem("email", res.data.email);
       window.location.href = "/organization-dashboard";
     } catch (err) {
       console.error("Org Admin login failed:", err);
