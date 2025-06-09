@@ -33,23 +33,35 @@ const Login = () => {
     }
   };
 
-  const handleOrgAdminLogin = async (e: React.FormEvent) => {
+    const handleOrgAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const trimmedEmail = orgAdminEmail.trim().toLowerCase();
+    const trimmedPassword = orgAdminPassword.trim();
+    const trimmedOrgCode = orgCode.trim().toUpperCase();
+
+    console.log("Sending login request with:", {
+      email: trimmedEmail,
+      password: trimmedPassword,
+      orgCode: trimmedOrgCode
+    });
+
     try {
       const res = await axios.post("http://localhost:5000/api/auth/login/orgadmin", {
-        email: orgAdminEmail,
-        password: orgAdminPassword,
-        orgCode,
+        email: trimmedEmail,
+        password: trimmedPassword,
+        orgCode: trimmedOrgCode,
       });
+
       console.log("Org Admin login successful:", res.data);
-      // Optional: Save token/user info
-      // localStorage.setItem("token", res.data.token);
-      window.location.href = "/organization-dashboard";
+      window.location.href = "/OrganizationDashboard.tsx";
     } catch (err) {
       console.error("Org Admin login failed:", err);
       alert("Invalid Organization Admin credentials");
     }
   };
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">

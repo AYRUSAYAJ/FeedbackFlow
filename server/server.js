@@ -2,14 +2,17 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
-const dashboardRoutes = require('./routes/dashboard'); // ✅ Use require here
+const dashboardRoutes = require('./routes/dashboard'); // Ensure this file exists and exports a router
 
 require('dotenv').config();
 
 const app = express();
 
 // Connect to MongoDB
-connectDB();
+connectDB().catch((err) => {
+  console.error('Failed to connect to MongoDB:', err);
+  process.exit(1); // Exit the process if the database connection fails
+});
 
 // Middleware
 app.use(cors());
@@ -17,7 +20,13 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/dashboard', dashboardRoutes); // ✅ Mount dashboard routes
+app.use('/api/dashboard', dashboardRoutes); // Ensure dashboardRoutes is correctly implemented
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ message: 'Internal server error' });
+});
 
 // Start server
 const PORT = process.env.PORT || 5000;
