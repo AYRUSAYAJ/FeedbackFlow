@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Building2, Shield, User } from "lucide-react";
 import { Link } from "react-router-dom";
+import axios from "axios";
 
 const Login = () => {
   const [superAdminEmail, setSuperAdminEmail] = useState("");
@@ -16,26 +16,44 @@ const Login = () => {
   const [orgAdminPassword, setOrgAdminPassword] = useState("");
   const [orgCode, setOrgCode] = useState("");
 
-  const handleSuperAdminLogin = (e: React.FormEvent) => {
+  const handleSuperAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Super Admin login attempt:", { superAdminEmail, superAdminPassword });
-    // In a real app, this would authenticate with your backend
-    // For demo purposes, redirect to admin dashboard
-    window.location.href = "/admin-dashboard";
+    try {
+      const res = await axios.post("http://localhost:5000/api/auth/login/superadmin", {
+        email: superAdminEmail,
+        password: superAdminPassword,
+      });
+      console.log("Super Admin login successful:", res.data);
+      // Optional: Save token/user info
+      // localStorage.setItem("token", res.data.token);
+      window.location.href = "/admin-dashboard";
+    } catch (err) {
+      console.error("Super Admin login failed:", err);
+      alert("Invalid Super Admin credentials");
+    }
   };
 
-  const handleOrgAdminLogin = (e: React.FormEvent) => {
+  const handleOrgAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Organization Admin login attempt:", { orgAdminEmail, orgAdminPassword, orgCode });
-    // In a real app, this would authenticate with your backend
-    // For demo purposes, redirect to organization dashboard
-    window.location.href = "/organization-dashboard";
+    try {
+      const res = await axios.post("http://localhost:5000/api/auth/login/orgadmin", {
+        email: orgAdminEmail,
+        password: orgAdminPassword,
+        orgCode,
+      });
+      console.log("Org Admin login successful:", res.data);
+      // Optional: Save token/user info
+      // localStorage.setItem("token", res.data.token);
+      window.location.href = "/organization-dashboard";
+    } catch (err) {
+      console.error("Org Admin login failed:", err);
+      alert("Invalid Organization Admin credentials");
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Header */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center space-x-2 mb-4">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
