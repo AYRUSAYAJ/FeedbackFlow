@@ -24,6 +24,12 @@ router.post('/login/orgadmin', async (req, res) => {
     }
 
     console.log("Login successful for:", org.email);
+    
+    // Set session data
+    req.session.userId = org._id;
+    req.session.email = org.email;
+    req.session.orgCode = org.orgCode;
+    
     res.json({
       message: 'Login successful',
       orgId: org._id,

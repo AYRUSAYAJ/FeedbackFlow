@@ -1,4 +1,79 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
+
+// Field types and form data types
+// Field types for state management
+interface BaseField {
+  id: number;
+  type: string;
+  label: string;
+  required: boolean;
+};
+
+type TextField = BaseField & {
+  type: "text" | "email" | "phone" | "textarea";
+  placeholder: string;
+};
+
+type RatingField = BaseField & {
+  type: "rating";
+  maxRating: number;
+};
+
+type SelectField = BaseField & {
+  type: "select";
+  options: string[];
+  placeholder?: string;
+};
+
+type FormField = TextField | RatingField | SelectField;
+
+// Field types for API submission
+interface BaseFieldData {
+  type: string;
+  label: string;
+  required: boolean;
+}
+
+interface TextFieldData extends BaseFieldData {
+  type: "text" | "email" | "phone" | "textarea";
+  placeholder: string;
+}
+
+interface RatingFieldData extends BaseFieldData {
+  type: "rating";
+  maxRating: number;
+}
+
+interface SelectFieldData extends BaseFieldData {
+  type: "select";
+  options: string[];
+  placeholder?: string;
+}
+
+type FieldData = TextFieldData | RatingFieldData | SelectFieldData;
+
+interface FormData {
+  name: string;
+  description: string;
+  category: string;
+  fields: FieldData[];
+  status: string;
+  createdAt: string;
+}
+
+// Type guard functions
+const isTextField = (field: FormField): field is TextField => {
+  return ["text", "email", "phone", "textarea"].includes(field.type);
+};
+
+const isRatingField = (field: FormField): field is RatingField => {
+  return field.type === "rating";
+};
+
+const isSelectField = (field: FormField): field is SelectField => {
+  return field.type === "select";
+};
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +82,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Plus, 
   Save,
@@ -24,15 +100,18 @@ import {
   ToggleLeft,
   GripVertical,
   Trash2,
-  Settings
+  Settings,
+  Loader2,
+  CheckCircle,
+  AlertCircle
 } from "lucide-react";
-import { Link } from "react-router-dom";
+// import { Link } from "react-router-dom"; // Removed router dependency
 
 const FormBuilder = () => {
   const [formName, setFormName] = useState("Customer Satisfaction Survey");
   const [formDescription, setFormDescription] = useState("Help us improve our service by sharing your experience");
   const [formCategory, setFormCategory] = useState("general");
-  const [fields, setFields] = useState([
+  const [fields, setFields] = useState<FormField[]>([
     {
       id: 1,
       type: "text",
@@ -56,6 +135,11 @@ const FormBuilder = () => {
     }
   ]);
 
+  // Save state
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [saveError, setSaveError] = useState("");
+
   // Organization info for QR code generation
   const orgInfo = {
     name: "City General Hospital",
@@ -77,22 +161,153 @@ const FormBuilder = () => {
   ];
 
   const addField = (fieldType: string) => {
-    const newField = {
+    const baseField = {
       id: fields.length + 1,
       type: fieldType,
       label: `New ${fieldType} field`,
-      placeholder: `Enter ${fieldType}...`,
-      required: false
+      required: false,
     };
+
+    let newField: FormField;
+
+    if (fieldType === "rating") {
+      newField = {
+        ...baseField,
+        type: "rating",
+        maxRating: 5
+      };
+    } else if (fieldType === "select") {
+      newField = {
+        ...baseField,
+        type: "select",
+        options: ["Option 1", "Option 2", "Option 3"],
+        placeholder: "Select an option..."
+      };
+    } else {
+      newField = {
+        ...baseField,
+        type: fieldType as "text" | "email" | "phone" | "textarea",
+        placeholder: `Enter ${fieldType}...`
+      };
+    }
+
     setFields([...fields, newField]);
   };
 
-  const removeField = (fieldId: number) => {
+  const removeField = (fieldId) => {
     setFields(fields.filter(field => field.id !== fieldId));
   };
 
-  // ... keep existing code (renderFieldPreview function)
-  const renderFieldPreview = (field: any) => {
+  const updateField = (fieldId, property, value) => {
+    setFields(fields.map(field => 
+      field.id === fieldId 
+        ? { ...field, [property]: value }
+        : field
+    ));
+  };
+
+  useEffect(() => {
+    const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
+    if (!isAuthenticated) {
+      window.location.href = "/login";
+    }
+  }, []);
+
+  // Save form function
+  const saveForm = async () => {
+    setSaving(true);
+    setSaveMessage("");
+    setSaveError("");
+
+    try {
+      // Validate form data
+      if (!formName.trim()) {
+        throw new Error("Form name is required");
+      }
+
+      if (fields.length === 0) {
+        throw new Error("At least one field is required");
+      }
+
+      // Get orgId and orgCode from localStorage
+      const orgId = localStorage.getItem("orgId");
+      const orgCode = localStorage.getItem("orgCode");
+      if (!orgId || !orgCode) {
+        throw new Error("Organization context missing. Please log in again.");
+      }
+
+      // Prepare form data
+      const formData: FormData & { orgId: string; orgCode: string } = {
+        name: formName.trim(),
+        description: formDescription.trim(),
+        category: formCategory,
+        fields: fields.map(field => {
+          const baseData: BaseFieldData = {
+            type: field.type,
+            label: field.label,
+            required: field.required
+          };
+
+          if (isTextField(field)) {
+            return {
+              ...baseData,
+              type: field.type,
+              placeholder: field.placeholder
+            };
+          } else if (isRatingField(field)) {
+            return {
+              ...baseData,
+              type: "rating",
+              maxRating: field.maxRating
+            };
+          } else if (isSelectField(field)) {
+            return {
+              ...baseData,
+              type: "select",
+              options: field.options,
+              placeholder: field.placeholder
+            };
+          }
+          return baseData;
+        }) as FieldData[],
+        status: "active",
+        createdAt: new Date().toISOString(),
+        orgId,
+        orgCode
+      };
+
+      // Make API call to save form
+      console.log('Saving form data:', formData);
+      const response = await axios.post('/api/forms', formData);
+      console.log('Response data:', response.data);
+
+      const savedForm = response.data;
+      setSaveMessage("Form saved successfully!");
+      
+      // Clear message after 3 seconds
+      setTimeout(() => {
+        setSaveMessage("");
+      }, 3000);
+
+      // Optionally redirect to dashboard after successful save
+      // setTimeout(() => {
+      //   window.location.href = "/organization-dashboard";
+      // }, 2000);
+
+    } catch (error) {
+      console.error("Error saving form:", error);
+      setSaveError(error.message || "Failed to save form. Please try again.");
+      
+      // Clear error message after 5 seconds
+      setTimeout(() => {
+        setSaveError("");
+      }, 5000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const renderFieldPreview = (field) => {
     switch (field.type) {
       case "text":
       case "email":
@@ -115,7 +330,7 @@ const FormBuilder = () => {
       case "rating":
         return (
           <div className="flex space-x-1 mt-2">
-            {[...Array(5)].map((_, i) => (
+            {[...Array(field.maxRating || 5)].map((_, i) => (
               <Star key={i} className="h-6 w-6 text-gray-300 hover:text-yellow-400 cursor-pointer" />
             ))}
           </div>
@@ -177,12 +392,15 @@ const FormBuilder = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
-              <Link to="/organization-dashboard" className="flex items-center space-x-2">
+              <button 
+                className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 cursor-pointer"
+                onClick={() => window.location.href = "/organization-dashboard"}
+              >
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">FF</span>
                 </div>
                 <span className="text-xl font-bold">Form Builder</span>
-              </Link>
+              </button>
               <Badge variant="secondary">Draft</Badge>
             </div>
             <div className="flex items-center space-x-4">
@@ -190,15 +408,29 @@ const FormBuilder = () => {
                 <Eye className="h-4 w-4 mr-2" />
                 Preview
               </Button>
-              <Link to="/organization-dashboard">
-                <Button variant="outline">
+              <Button 
+                variant="outline"
+                onClick={() => window.location.href = "/organization-dashboard"}
+              >
                   <QrCode className="h-4 w-4 mr-2" />
                   Organization QR
-                </Button>
-              </Link>
-              <Button className="bg-gradient-to-r from-blue-600 to-purple-600">
-                <Save className="h-4 w-4 mr-2" />
-                Save Form
+              </Button>
+              <Button 
+                className="bg-gradient-to-r from-blue-600 to-purple-600"
+                onClick={saveForm}
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Form
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -206,6 +438,21 @@ const FormBuilder = () => {
       </header>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Save Messages */}
+        {saveMessage && (
+          <Alert className="mb-6 border-green-200 bg-green-50">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-700">{saveMessage}</AlertDescription>
+          </Alert>
+        )}
+
+        {saveError && (
+          <Alert className="mb-6 border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-700">{saveError}</AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Form Settings */}
           <div className="space-y-6">
@@ -216,12 +463,13 @@ const FormBuilder = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="formName">Form Name</Label>
+                  <Label htmlFor="formName">Form Name *</Label>
                   <Input 
                     id="formName"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
                     className="mt-1"
+                    placeholder="Enter form name"
                   />
                 </div>
                 <div>
@@ -231,6 +479,7 @@ const FormBuilder = () => {
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
                     className="mt-1"
+                    placeholder="Describe what this form is for"
                   />
                 </div>
                 <div>
@@ -255,7 +504,7 @@ const FormBuilder = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Field Types</CardTitle>
-                <CardDescription>Drag to add fields to your form</CardDescription>
+                <CardDescription>Click to add fields to your form</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-2">
@@ -301,12 +550,9 @@ const FormBuilder = () => {
                               <div className="flex items-center justify-between mb-2">
                                 <Input
                                   value={field.label}
-                                  onChange={(e) => {
-                                    const newFields = [...fields];
-                                    newFields[index].label = e.target.value;
-                                    setFields(newFields);
-                                  }}
+                                  onChange={(e) => updateField(field.id, 'label', e.target.value)}
                                   className="font-medium border-none p-0 h-auto text-base focus:ring-0"
+                                  placeholder="Field label"
                                 />
                                 <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <Button variant="outline" size="sm">
@@ -322,12 +568,34 @@ const FormBuilder = () => {
                                   </Button>
                                 </div>
                               </div>
-                              {renderFieldPreview(field)}
-                              {field.required && (
-                                <Badge variant="secondary" className="mt-2 text-xs">
-                                  Required
-                                </Badge>
+                              
+                              {/* Placeholder input for text fields */}
+                              {(field.type === 'text' || field.type === 'textarea' || field.type === 'email' || field.type === 'phone') && (
+                                <Input
+                                  value={field.placeholder || ''}
+                                  onChange={(e) => updateField(field.id, 'placeholder', e.target.value)}
+                                  className="text-sm text-gray-500 border-none p-0 h-auto focus:ring-0 mb-2"
+                                  placeholder="Placeholder text"
+                                />
                               )}
+                              
+                              {renderFieldPreview(field)}
+                              
+                              <div className="flex items-center justify-between mt-2">
+                                {field.required && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Required
+                                  </Badge>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => updateField(field.id, 'required', !field.required)}
+                                  className="text-xs"
+                                >
+                                  {field.required ? 'Make Optional' : 'Make Required'}
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>

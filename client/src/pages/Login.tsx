@@ -9,6 +9,9 @@ import { Building2, Shield, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 
+// Configure axios to include credentials
+axios.defaults.withCredentials = true;
+
 const Login = () => {
   const [superAdminEmail, setSuperAdminEmail] = useState("");
   const [superAdminPassword, setSuperAdminPassword] = useState("");
@@ -24,6 +27,9 @@ const Login = () => {
         password: superAdminPassword,
       });
       console.log("Super Admin login successful:", res.data);
+      // Store minimal info in localStorage for UI purposes
+      localStorage.setItem("isAuthenticated", "true");
+      localStorage.setItem("superAdminEmail", superAdminEmail);
       window.location.href = "/admin-dashboard";
     } catch (err) {
       console.error("Super Admin login failed:", err);
@@ -52,9 +58,9 @@ const Login = () => {
       });
 
       console.log("Org Admin login successful:", res.data);
-      localStorage.setItem("orgId", res.data.orgId);
-      localStorage.setItem("orgCode", res.data.orgCode);
-      localStorage.setItem("email", res.data.email);
+      // Store minimal info in localStorage for UI purposes
+      localStorage.setItem("isAuthenticated", "true");
+      localStorage.setItem("orgName", res.data.orgName || "Organization");
       window.location.href = "/organization-dashboard";
     } catch (err) {
       console.error("Org Admin login failed:", err);

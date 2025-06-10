@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const session = require('express-session');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const dashboardRoutes = require('./routes/dashboard'); // Ensure this file exists and exports a router
@@ -7,6 +8,17 @@ const dashboardRoutes = require('./routes/dashboard'); // Ensure this file exist
 require('dotenv').config();
 
 const app = express();
+
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
 
 // Connect to MongoDB
 connectDB().catch((err) => {
@@ -21,6 +33,9 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes); // Ensure dashboardRoutes is correctly implemented
+
+const formRoutes = require('./routes/forms');
+app.use('/api/forms', formRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
